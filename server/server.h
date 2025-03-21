@@ -21,25 +21,27 @@ typedef struct Client {
 static Client *client_list = NULL; // Lista enlazada de clientes conectados
 static pthread_mutex_t client_list_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex para proteger la lista de clientes
 
-// Agrega un nuevo cliente a la lista retorna 0 si se agregó exitosamente o -1 si ya existe un cliente con ese nombre
+// Agrega un nuevo cliente a la lista. Retorna 0 si se agrego exitosamente
+// o -1 si ya existe un cliente con el mismo nombre o con la misma IP
 static inline int add_client(Client *new_client) {
     int ret = 0;
     pthread_mutex_lock(&client_list_mutex); // Bloquea el mutex para acceso exclusivo a la lista
     Client *curr = client_list; // Inicia el recorrido en la cabeza de la lista
     while (curr != NULL) { // Recorre cada cliente en la lista
-        if (strcmp(curr->username, new_client->username) == 0) {
-            ret = -1;// Establece el resultado en -1 si se encuentra un duplicado
+        // Verifica si el nombre de usuario ya existe o si la dirección IP ya esta registrada
+        if (strcmp(curr->username, new_client->username) == 0 || 
+            strcmp(curr->ip, new_client->ip) == 0) {
+            ret = -1; // Si se encuentra duplicado nombre o IP se marca error
             break;
         }
         curr = curr->next; // Avanza al siguiente cliente
     }
-    if (ret == 0) { // Si no se encontro duplicado se añade el nuevo cliente
-        new_client->next = client_list; // Inserta al inicio de la lista
-        client_list = new_client; // Actualiza la cabeza de la lista con el nuevo cliente
+    if (ret == 0) { // Si no se encontró duplicado, se añade el nuevo cliente
+        new_client->next = client_list; // Inserta el nuevo cliente al inicio de la lista
+        client_list = new_client; // Actualiza la cabeza de la lista.
     }
-    // libera el mutex para permitir el acceso a la lista
-    pthread_mutex_unlock(&client_list_mutex);
-    return ret; // Retorna el resultado de la operacion 0 si exitosa -1 si falla
+    pthread_mutex_unlock(&client_list_mutex); // Libera el mutex.
+    return ret; // Retorna 0 en éxito o -1 si se detectó duplicado.
 }
 
 // Elimina el cliente identificado por username de la lista retorna 0 si se elimino o -1 si no se encontro
