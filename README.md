@@ -1,4 +1,4 @@
-# Chat Cliente-Servidor en C (WebSockets)
+# Chat Cliente-Servidor en C -WebSockets
 
 Este proyecto implementa un sistema de **chat en tiempo real** cliente-servidor escrito en C, utilizando **WebSockets** para la comunicación y un protocolo de mensajes en formato JSON. Permite que múltiples usuarios se conecten a un servidor de chat, envíen mensajes públicos (broadcast) a todos los conectados, mensajes privados a usuarios específicos, cambien su estado (activo, ocupado, inactivo) y consulten información de usuarios en línea. El protocolo está diseñado para ser interoperable, de modo que otros clientes/servidores que sigan el mismo formato de mensajes podrán comunicarse con este proyecto.
 
