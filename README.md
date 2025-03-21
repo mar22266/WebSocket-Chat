@@ -134,56 +134,69 @@ La comunicación entre el cliente y el servidor se realiza mediante mensajes en 
 ### Ejemplo de Intercambio
 
 1. **Registro:**
- - Cliente envía:
-   ```
-   {"type":"register","sender":"alice","timestamp":"2025-03-20T21:00:00"}
-   ```
-   — Solicita registrarse como "alice".
- - Servidor responde:
-   ```
-   {"type":"register_success","sender":"server","content":"Registro exitoso","userList":["alice","bob"],"timestamp":"2025-03-20T21:00:01"}
-   ```
-   — Confirma el registro y proporciona la lista actual de usuarios (en este ejemplo, ya estaba "bob" conectado, además de "alice").
+   - **Cliente envía:**
+     ```json
+     {"type":"register","sender":"alice","timestamp":"2025-03-20T21:00:00"}
+     ```
+     — Solicita registrarse como "alice".
+   - **Servidor responde:**
+     ```json
+     {"type":"register_success","sender":"server","content":"Registro exitoso","userList":["alice","bob"],"timestamp":"2025-03-20T21:00:01"}
+     ```
+     — Confirma el registro y proporciona la lista actual de usuarios (en este ejemplo, ya estaba "bob" conectado, además de "alice").
 
 2. **Mensaje Broadcast:**
- - Bob envía:
-   ```
-   {"type":"broadcast","sender":"bob","content":"Hola a todos!","timestamp":"2025-03-20T21:03:00"}
-   ```
- - Todos los usuarios reciben:
-   ```
-   {"type":"broadcast","sender":"bob","content":"Hola a todos!","timestamp":"2025-03-20T21:03:00"}
-   ```
+   - **Bob envía:**
+     ```json
+     {"type":"broadcast","sender":"bob","content":"Hola a todos!","timestamp":"2025-03-20T21:03:00"}
+     ```
+   - **Todos los usuarios reciben:**
+     ```json
+     {"type":"broadcast","sender":"bob","content":"Hola a todos!","timestamp":"2025-03-20T21:03:00"}
+     ```
 
 3. **Mensaje Privado:**
- - Carla envía:
-   ```
-   {"type":"private","sender":"carla","target":"bob","content":"¿Cómo estás?","timestamp":"2025-03-20T21:04:00"}
-   ```
- - Solo Bob recibe:
-   ```
-   {"type":"private","sender":"carla","target":"bob","content":"¿Cómo estás?","timestamp":"2025-03-20T21:04:00"}
-   ```
+   - **Carla envía:**
+     ```json
+     {"type":"private","sender":"carla","target":"bob","content":"¿Cómo estás?","timestamp":"2025-03-20T21:04:00"}
+     ```
+   - **Solo Bob recibe:**
+     ```json
+     {"type":"private","sender":"carla","target":"bob","content":"¿Cómo estás?","timestamp":"2025-03-20T21:04:00"}
+     ```
 
 4. **Cambio de Estado:**
- - Un cliente envía:
-   ```
-   {"type":"change_status","sender":"alice","content":"OCUPADO","timestamp":"2025-03-20T21:05:00"}
-   ```
- - Servidor actualiza el estado y envía a todos:
-   ```
-   {"type":"status_update","sender":"server","content":{"user":"alice","status":"OCUPADO"},"timestamp":"2025-03-20T21:05:01"}
-   ```
+   - **Un cliente envía:**
+     ```json
+     {"type":"change_status","sender":"alice","content":"OCUPADO","timestamp":"2025-03-20T21:05:00"}
+     ```
+   - **Servidor actualiza el estado y envía a todos:**
+     ```json
+     {"type":"status_update","sender":"server","content":{"user":"alice","status":"OCUPADO"},"timestamp":"2025-03-20T21:05:01"}
+     ```
 
-5. **Desconexión:**
- - Cliente envía:
-   ```
-   {"type":"disconnect","sender":"bob","content":"Cierre de sesión","timestamp":"2025-03-20T21:06:00"}
-   ```
- - Servidor elimina a "bob" y notifica a todos:
-   ```
-   {"type":"user_disconnected","sender":"server","content":"bob ha salido","timestamp":"2025-03-20T21:06:01"}
-   ```
+5. **List Users:**
+   - **Cliente envía:**
+     ```json
+     {"type":"list_users","sender":"client","timestamp":"2025-03-20T21:06:00"}
+     ```
+   - **Servidor responde:**
+     ```json
+     {"type":"list_users_response","sender":"server","content":["alice","bob"],"timestamp":"2025-03-20T21:06:01"}
+     ```
 
+6. **User Info:**
+   - **Cliente envía:**
+     ```json
+     {"type":"user_info","sender":"client","target":"alice","timestamp":"2025-03-20T21:07:00"}
+     ```
+   - **Servidor responde:**
+     ```json
+     {"type":"user_info_response","sender":"server","target":"alice","content":{"ip":"127.0.0.1","status":"ACTIVO"},"timestamp":"2025-03-20T21:07:01"}
+     ```
 
-
+7. **Desconexión:**
+   - **Cliente envía:**
+     ```json
+     {"type":"disconnect","sender":"bob","content":"Cierre de sesión","timestamp":"2025-03-20T21:08:00"}
+     ```
