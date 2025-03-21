@@ -200,3 +200,7 @@ La comunicación entre el cliente y el servidor se realiza mediante mensajes en 
      ```json
      {"type":"disconnect","sender":"bob","content":"Cierre de sesión","timestamp":"2025-03-20T21:08:00"}
      ```
+   - **Servidor responde:**
+     ```json
+     {"type":"user_disconnected","sender":"server","content":"bob ha salido","timestamp":"2025-03-20T21:08:01"}
+     ```
