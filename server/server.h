@@ -15,34 +15,37 @@ typedef struct Client {
     char status[MAX_FIELD_LENGTH]; // Por ejemplo ACTIVO OCUPADO INACTIVO
     struct lws *wsi;             // Puntero a la conexión WebSocket 
     struct Client *next;  // Puntero al siguiente cliente en la lista
+    time_t last_activity; // ultima vez que el cliente mando un mensaje
+
 } Client;
 
 // Lista global de clientes y mutex para sincronización.
 static Client *client_list = NULL; // Lista enlazada de clientes conectados
 static pthread_mutex_t client_list_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex para proteger la lista de clientes
 
-// Agrega un nuevo cliente a la lista. Retorna 0 si se agrego exitosamente
-// o -1 si ya existe un cliente con el mismo nombre o con la misma IP
+// Agrega un nuevo cliente a la lista. Retorna 0 si se agregó exitosamente,
+// o -1 si ya existe un cliente con el mismo nombre o con la misma IP.
 static inline int add_client(Client *new_client) {
     int ret = 0;
-    pthread_mutex_lock(&client_list_mutex); // Bloquea el mutex para acceso exclusivo a la lista
-    Client *curr = client_list; // Inicia el recorrido en la cabeza de la lista
-    while (curr != NULL) { // Recorre cada cliente en la lista
-        // Verifica si el nombre de usuario ya existe o si la dirección IP ya esta registrada
+    pthread_mutex_lock(&client_list_mutex); // Bloquea el mutex para acceso exclusivo a la lista.
+    Client *curr = client_list; // Inicia el recorrido en la cabeza de la lista.
+    while (curr != NULL) { // Recorre cada cliente en la lista.
+        // Verifica si el nombre de usuario ya existe o si la dirección IP ya está registrada.
         if (strcmp(curr->username, new_client->username) == 0 || 
             strcmp(curr->ip, new_client->ip) == 0) {
-            ret = -1; // Si se encuentra duplicado nombre o IP se marca error
+            ret = -1; // Si se encuentra duplicado (nombre o IP), se marca error.
             break;
         }
-        curr = curr->next; // Avanza al siguiente cliente
+        curr = curr->next; // Avanza al siguiente cliente.
     }
-    if (ret == 0) { // Si no se encontró duplicado, se añade el nuevo cliente
-        new_client->next = client_list; // Inserta el nuevo cliente al inicio de la lista
+    if (ret == 0) { // Si no se encontró duplicado, se añade el nuevo cliente.
+        new_client->next = client_list; // Inserta el nuevo cliente al inicio de la lista.
         client_list = new_client; // Actualiza la cabeza de la lista.
     }
     pthread_mutex_unlock(&client_list_mutex); // Libera el mutex.
     return ret; // Retorna 0 en éxito o -1 si se detectó duplicado.
 }
+
 
 // Elimina el cliente identificado por username de la lista retorna 0 si se elimino o -1 si no se encontro
 static inline int remove_client(const char *username) {
@@ -272,12 +275,12 @@ static inline void handle_incoming_message(struct lws *wsi, const char *json_str
             // Si el registro es exitoso manda un mensaje de registro exitoso
             send_register_success(wsi, "Registro exitoso");
         } else {
-            // Si ya existe el usuario, envía un mensaje de error y cierra la conexion
+            // Si ya existe el usuario o la IP, envía un mensaje de error y cierra la conexion
             ProtocolMessage error_msg;
             memset(&error_msg, 0, sizeof(error_msg));
             strncpy(error_msg.type, MSG_TYPE_ERROR, MAX_FIELD_LENGTH);
             strncpy(error_msg.sender, "server", MAX_FIELD_LENGTH);
-            strncpy(error_msg.content, "Nombre de usuario ya existe.", MAX_MESSAGE_LENGTH);
+            strncpy(error_msg.content, "Nombre de usuario o IP ya existente.", MAX_MESSAGE_LENGTH);
             get_current_timestamp(error_msg.timestamp, MAX_FIELD_LENGTH);
             send_message(wsi, &error_msg);
             free(new_client);

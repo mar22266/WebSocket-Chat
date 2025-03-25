@@ -10,32 +10,11 @@
 #include <unistd.h>  
 
 // Variables globales, guarda la ultima actividad, el estado actual, la conexión WebSocket, la bandera de salida y el nombre de usuario
-static time_t last_activity;
-static char current_status[MAX_FIELD_LENGTH] = "ACTIVO";
+
 static struct lws *client_wsi = NULL;
 static volatile int force_exit = 0;
 static char *username = NULL;
 
-// Hilo de inactividad cada segundo verifica si han pasado 15 segundos sin actividad de ser asi manda un mensaje para cambiar el estado a INACTIVO
-void *inactivity_thread(void *arg) {
-    while (!force_exit) {
-        sleep(1);  // Espera 1 segundo entre comprobaciones
-        time_t now = time(NULL);
-        if (difftime(now, last_activity) >= 15 && strcmp(current_status, "INACTIVO") != 0) {
-            // Construir y enviar mensaje para cambiar estado a INACTIVO
-            ProtocolMessage msg;
-            memset(&msg, 0, sizeof(msg));
-            strncpy(msg.type, MSG_TYPE_CHANGE_STATUS, MAX_FIELD_LENGTH);
-            strncpy(msg.sender, username, MAX_FIELD_LENGTH);
-            strncpy(msg.content, "INACTIVO", MAX_MESSAGE_LENGTH);
-            get_current_timestamp(msg.timestamp, MAX_FIELD_LENGTH);
-            client_send_message(client_wsi, &msg);
-            strcpy(current_status, "INACTIVO");
-            printf("Estado cambiado a INACTIVO por inactividad.\n");
-        }
-    }
-    return NULL;
-}
 
 // Hilo encargado de leer entrada desde stdin y actualiza el timestamp de actividad en cada comando.
 void *stdin_thread(void *arg) {
@@ -45,22 +24,6 @@ void *stdin_thread(void *arg) {
             size_t len = strlen(buffer);
             if (len > 0 && buffer[len - 1] == '\n') {
                 buffer[len - 1] = '\0';
-            }
-            
-             // Actualiza el tiempo de la ultima actividad con la hora actual
-            last_activity = time(NULL);
-            
-            // Si el estado era INACTIVO, se envía mensaje para cambiar a ACTIVO
-            if (strcmp(current_status, "INACTIVO") == 0) {
-                ProtocolMessage msg;
-                memset(&msg, 0, sizeof(msg));
-                strncpy(msg.type, MSG_TYPE_CHANGE_STATUS, MAX_FIELD_LENGTH);
-                strncpy(msg.sender, username, MAX_FIELD_LENGTH);
-                strncpy(msg.content, "ACTIVO", MAX_MESSAGE_LENGTH);
-                get_current_timestamp(msg.timestamp, MAX_FIELD_LENGTH);
-                client_send_message(client_wsi, &msg);
-                strcpy(current_status, "ACTIVO");
-                printf("Estado cambiado a ACTIVO.\n");
             }
             
             // Procesar el comando ingresado
@@ -169,16 +132,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
     
-    // Inicializar la variable de actividad
-    last_activity = time(NULL);
-    
-    // Crear el hilo para el monitoreo de inactividad
-    pthread_t inactivity_tid;
-    if (pthread_create(&inactivity_tid, NULL, inactivity_thread, NULL) != 0) {
-        fprintf(stderr, "Error al crear el hilo de inactividad.\n");
-        lws_context_destroy(context);
-        return EXIT_FAILURE;
-    }
+
     
     // Crear el hilo para leer comandos desde la entrada estandar
     pthread_t tid;
@@ -195,7 +149,6 @@ int main(int argc, char **argv) {
     
     // Esperar a que terminen ambos hilos.
     pthread_join(tid, NULL);
-    pthread_join(inactivity_tid, NULL);
     lws_context_destroy(context);
     
     printf("Cliente finalizado.\n");

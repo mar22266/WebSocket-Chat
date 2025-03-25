@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <libwebsockets.h>
 #include "server.h"
+#include <unistd.h> 
+#include <time.h>
 
 // Bandera para terminar el bucle principal de forma controlada
 static volatile int force_exit = 0;
@@ -25,18 +27,44 @@ static int callback_chat(struct lws *wsi, enum lws_callback_reasons reason, void
             
         case LWS_CALLBACK_RECEIVE:
             {
-                // Se recibe un mensaje se asigna memoria para asegurar que la cadena quede terminada en nulo
+                // Se recibe un mensaje: asignar memoria, procesarlo y liberar
                 char *received = (char *)malloc(len + 1);
                 if (received) {
-                    memcpy(received, in, len); // Copia el mensaje recibido
-                    received[len] = '\0'; // Asegura la terminacion de la cadena
-                    lwsl_user("Mensaje recibido: %s\n", received); // Imprime el mensaje recibido
-                    // se procesa el mensaje recibido mediante la función handle incoming message
+                    memcpy(received, in, len);
+                    received[len] = '\0';
+                    lwsl_user("Mensaje recibido: %s\n", received);
+                    // Procesa el mensaje recibido
                     handle_incoming_message(wsi, received);
-                    free(received); // se libera la memoria asignada
+                    free(received);
+                }
+
+                // Actualizar la última actividad del cliente y, si estaba inactivo, cambiar a ACTIVO.
+                int should_activate = 0;
+                char uname[MAX_FIELD_LENGTH] = "";
+
+                pthread_mutex_lock(&client_list_mutex);
+                Client *cli = client_list;
+                while (cli != NULL) {
+                    if (cli->wsi == wsi) {
+                        // Actualiza la marca de tiempo con la hora actual
+                        cli->last_activity = time(NULL);
+                        // Si el cliente estaba marcado como INACTIVO, marcar para activarlo
+                        if (strcmp(cli->status, STATUS_INACTIVE) == 0) {
+                            strncpy(uname, cli->username, MAX_FIELD_LENGTH);
+                            should_activate = 1;
+                        }
+                        break;
+                    }
+                    cli = cli->next;
+                }
+                pthread_mutex_unlock(&client_list_mutex);
+
+                if (should_activate) {
+                    update_client_status(uname, STATUS_ACTIVE);
                 }
             }
             break;
+
             
     // Se cierra la conexion se maneja la desconexion del cliente
     case LWS_CALLBACK_CLOSED:
@@ -73,6 +101,32 @@ static int callback_chat(struct lws *wsi, enum lws_callback_reasons reason, void
     }
     return 0;
 }
+// Hilo de inactividad del servidor: revisa clientes cada 1 s y actualiza estado
+static void* inactivity_monitor(void *arg) {
+    while (!force_exit) {
+        sleep(1);
+        time_t now = time(NULL);
+        pthread_mutex_lock(&client_list_mutex);
+        Client *curr = client_list;
+        while (curr != NULL) {
+            if (difftime(now, curr->last_activity) >= 15 && 
+                strcmp(curr->status, STATUS_INACTIVE) != 0) {
+                char uname[MAX_FIELD_LENGTH];
+                strncpy(uname, curr->username, MAX_FIELD_LENGTH);
+                pthread_mutex_unlock(&client_list_mutex);
+                update_client_status(uname, STATUS_INACTIVE);
+                pthread_mutex_lock(&client_list_mutex);
+                // Reinicia el recorrido para evitar inconsistencias.
+                curr = client_list;
+                continue;
+            }
+            curr = curr->next;
+        }
+        pthread_mutex_unlock(&client_list_mutex);
+    }
+    return NULL;
+}
+
 
 // Definicion de los protocolos que usara libwebsockets
 static struct lws_protocols protocols[] = {
@@ -117,12 +171,20 @@ int main(int argc, char **argv) {
     }
     
     lwsl_user("Servidor iniciado en el puerto %d.\n", port);
-    
+    // Lanzar el hilo de monitoreo de inactividad del servidor
+    pthread_t inactivity_tid;
+    if (pthread_create(&inactivity_tid, NULL, inactivity_monitor, NULL) != 0) {
+        fprintf(stderr, "Error al crear el hilo de inactividad.\n");
+        lws_context_destroy(context);
+        return EXIT_FAILURE;
+    }
+
     // Bucle principal del servidor
     while (!force_exit) {
         lws_service(context, 50);
     }
     
+    pthread_join(inactivity_tid, NULL);
     // Limpieza y finalizacion
     lws_context_destroy(context);
     lwsl_user("Servidor finalizado.\n");
